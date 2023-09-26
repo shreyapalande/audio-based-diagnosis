@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <link
+            rel="stylesheet"
+            href="{{ url_for('static', filename= 'style.css') }}"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css"
+            integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
+            crossorigin="anonymous"
+        />
+        <title>Healthcare</title>
+    </head>
+    <body>
+        <div class="container">
+            <div class="title-head" style="margin-bottom: 25px; margin-top: 25px;">
+                <center><h1>Audio-based diagnosis</h1></center>
+            </div>
+            <div class="container-fluid h-custom">
+                <div class="row d-flex align-items-center">
+                    <div class="col-md-6">
+                        <img
+                            src="https://media.licdn.com/dms/image/D5612AQGcNlE-I6SkPg/article-cover_image-shrink_720_1280/0/1686626121380?e=2147483647&v=beta&t=1OEIdln9tKXS7xu52105jnJ6MZs2Hx6CREApFuMqiC4"
+                            style="margin-bottom: 10vh"
+                            class="img-fluid"
+                            alt="Sample image"
+                        />
+                    </div>
+                    <div class="col-md-6">
+                        <form action="{{ url_for('predict')}}" method="post">
+                            <!-- <h1 class="text-center">Form</h1> -->
+                            <div class="form-outline mb-4">
+                                <input
+                                required
+                                    type="text"
+                                    name="input_text"
+                                    class="form-control form-control-lg"
+                                    placeholder="Enter symptoms"
+                                />
+                            </div>
+                            <div class="text-center text-lg-start mt-4 pt-2">
+                                <button
+                                    type="submit"
+                                    class="btn btn-primary btn-lg btn-block"
+                                    style="
+                                        padding-left: 2.5rem;
+                                        padding-right: 2.5rem;
+                                    "
+                                >
+                                    Predict
+                                </button>
+                            </div>
+                        </form>
+                        <br>
+                        <h5>{{ prediction_text }}</h5>
+                    </div>
+                    <div class="col-md-6">
+                        <div id="speechContainer">
+                            <h4>Upload new File</h4>
+                            <form method="post" action="{{ url_for('audio_predict')}}" enctype="multipart/form-data">
+                                <div class="form-outline mb-3">
+                                    <input required type="file" name="file" class="form-control " style="margin: 25px 0;"/>
+                                    <input class="btn btn-block btn-primary" type="submit" id="submitButton" value="Transcribe"/>
+                                </div>
+                            </form>
+                        
+                            {% if transcribed_text != "" %}
+                                <div id="speechTranscriptContainer">
+                                    <h4>Transcript :</h4>
+                                    <p id="speechText">{{ transcribed_text }}</p>
+                                    <h5>{{ prediction }}</h5>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <img
+                            src="https://www.gloriumtech.com/wp-content/uploads/2022/06/What-Is-a-Good-Healthcare-UX-Design_-Key-Features-and-Benefits..png"
+                            style="margin-bottom: 10vh"
+                            class="img-fluid"
+                            alt="Sample image"
+                        />
+                    </div>
+                    <!-- <div class="col-md-6">
+                        <img
+                            src="https://miro.medium.com/v2/resize:fit:1358/1*8TL1WukXmP-nhWwRdb0eBA.png"
+                            style="margin-bottom: 10vh"
+                            class="img-fluid"
+                            alt="Sample image"
+                        />
+                    </div>
+                    <div class="col-md-6">
+                        <h1>Audio Recorder</h1>
+                        <button class="btn btn-primary" id="startRecord">Start Recording</button>
+                        <button class="btn btn-primary" id="stopRecord" disabled>Stop Recording</button>
+                        <audio id="audioPlayer" controls></audio>
+                        <button class="btn btn-primary" id="uploadButton" type="button" disabled>Upload Audio</button>
+                    </div> -->
+                </div>
+            </div>
+        </div>
+    </body>
+    <script>
+        // Declare variables
+        let mediaRecorder;
+        let audioChunks = [];
+        let audioStream;
+
+        const startButton = document.getElementById('startRecord');
+        const stopButton = document.getElementById('stopRecord');
+        const audioPlayer = document.getElementById('audioPlayer');
+
+        // Start recording when the "Start Recording" button is clicked
+        startButton.addEventListener('click', async () => {
+            try {
+                audioChunks = [];
+                audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(audioStream);
+
+                mediaRecorder.ondataavailable = event => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    audioPlayer.src = audioUrl;
+
+                    // Enable the upload button
+                    document.getElementById('uploadButton').disabled = false;
+                };
+
+                mediaRecorder.start();
+                startButton.disabled = true;
+                stopButton.disabled = false;
+            } catch (error) {
+                console.error('Error starting recording:', error);
+            }
+        });
+
+        // Stop recording when the "Stop Recording" button is clicked
+        stopButton.addEventListener('click', () => {
+            mediaRecorder.stop();
+            audioStream.getTracks().forEach(track => track.stop());
+            startButton.disabled = false;
+            stopButton.disabled = true;
+        });
+
+        // Handle audio file upload
+        const uploadButton = document.getElementById('uploadButton');
+        uploadButton.addEventListener('click', () => {
+            console.log(audioChunks)
+            if (audioChunks.length > 0) {
+                // Send the recorded audio to your Flask API using a Fetch API call
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const formData = new FormData();
+                formData.append('audioFile', audioBlob, 'recorded_audio.wav');
+                console.log(formData);
+
+                fetch('/upload_audio', {
+                    method: 'POST',
+                    body: formData,
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Transcript:', data.transcript);
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                });
+            }
+        });
+    </script>
+</html>
